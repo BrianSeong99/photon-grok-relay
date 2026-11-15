@@ -2,7 +2,9 @@
 
 Give your existing Grok Bot an iMessage front end. Text a Photon-managed number, get a reply in the same thread, and ask a follow-up that refers to the first answer.
 
-In the iPhone test, the Bot suggested **Morning Ember Cafe**. When asked to make the second suggestion shorter, it replied **Morning Ember**. [Watch the setup walkthrough](https://github.com/BrianSeong99/photon-grok-relay/releases/download/v0.1.0/setup-walkthrough.mp4) or read the [video transcript](#recordings).
+**Watch the live demo:** [iMessage on iPhone][iphone-demo] · [Grok Bot on desktop][grok-demo] · [Setup walkthrough][setup-demo]
+
+In the original two-turn test, I asked for coffee shop names, then asked the Bot to shorten its second suggestion. It changed **Morning Ember Cafe** to **Morning Ember**. The recordings below show a separate live run from the phone and Bot sides.
 
 This is an independent developer tutorial using Photon Spectrum Cloud and Grok Bot.
 
@@ -107,5 +109,10 @@ Wait for **Spectrum connected. Waiting for a direct text.** Then send the same t
 
 ## Recordings
 
-- [Setup walkthrough (MP4)](https://github.com/BrianSeong99/photon-grok-relay/releases/download/v0.1.0/setup-walkthrough.mp4). The video shows the relay flow, local checks, Grok routine and connector configuration, real captured test answers, Photon account setup, and the command to start iMessage mode. Account configuration uses placeholders.
-- **iPhone demo transcript.** Asked for two three-word coffee-shop names. The Bot replied “Brew and Bloom, Morning Ember Cafe.” Asked “Make the second one shorter.” The Bot replied “Morning Ember.”
+- **[iMessage on iPhone][iphone-demo].** I ask Grok Bot about my X profile and then ask about recent follower engagement. The Bot describes the profile and explains that it cannot see live engagement stats from that chat. Messages shows the answers in the same thread.
+- **[Grok Bot on desktop][grok-demo].** The Bot-side recording shows the answers generated during the same run and the routine handling follow-up requests.
+- **[Setup walkthrough][setup-demo].** The walkthrough covers the relay, local checks, routine and connector configuration, captured test answers, Photon setup, and starting the relay. Credentials are shown as placeholders.
+
+[iphone-demo]: https://github.com/BrianSeong99/photon-grok-relay/releases/download/v0.1.0/imessage-demo.mp4
+[grok-demo]: https://github.com/BrianSeong99/photon-grok-relay/releases/download/v0.1.0/grok-bot-demo.mp4
+[setup-demo]: https://github.com/BrianSeong99/photon-grok-relay/releases/download/v0.1.0/setup-walkthrough.mp4
