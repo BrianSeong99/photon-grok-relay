@@ -12,20 +12,9 @@ In the original two-turn test, I asked for coffee shop names, then asked the Bot
 
 This is an independent developer tutorial using Photon Spectrum Cloud and Grok Bot.
 
-```mermaid
-sequenceDiagram
-    participant I as iPhone
-    participant P as Photon
-    participant R as Local relay
-    participant G as Existing Grok Bot
-    I->>P: Send an iMessage
-    P->>R: Deliver inbound text and conversation
-    R->>G: Trigger routine with text, request ID, and recent history
-    G-->>R: Acknowledge the run
-    G->>R: Return the answer through reply_to_message
-    R->>P: Send answer to the original conversation
-    P->>I: Deliver reply in Messages
-```
+## How the message gets back to your phone
+
+![Sequence diagram: iPhone sends text through Photon to the local relay, which triggers Grok Bot. The Bot calls the relay’s MCP reply tool, and Photon delivers the answer to the original iMessage thread.](media/relay-sequence.svg)
 
 The webhook acknowledgement tells the relay the run started. The MCP tool carries the answer back. The relay matches replies by request ID and keeps the destination on your Mac. Grok Bot routine runs didn’t reliably carry prior turns in testing, so the relay supplies up to four recent exchanges from the same thread.
 

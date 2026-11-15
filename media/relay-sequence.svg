@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1090" height="680" viewBox="0 0 1090 680" role="img" aria-labelledby="title desc">
+<title id="title">An iMessage round trip through Photon and Grok Bot</title>
+<desc id="desc">The iPhone sends a text through Photon. The local relay remembers the conversation and triggers a Grok Bot routine. The Bot acknowledges the run, generates the answer, and calls the relay’s MCP reply tool. The relay sends the answer through Photon to the same thread.</desc>
+<defs><marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#7ee6dc"/></marker><marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#b4c1d6"/></marker><marker id="arrow-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#f4c28b"/></marker></defs>
+<rect width="1090" height="680" rx="20" fill="#101522"/>
+<g font-family="system-ui, sans-serif" text-anchor="middle">
+<rect x="20" y="24" width="240" height="66" rx="11" fill="#1d2a41"/>
+<text x="140" y="51" fill="#f3f7ff" font-size="20" font-weight="700">iPhone</text>
+<text x="140" y="74" fill="#b7c5d8" font-size="15">Messages</text>
+<path d="M140 91V652" stroke="#44536b" stroke-dasharray="5 6"/>
+<rect x="290" y="24" width="240" height="66" rx="11" fill="#1d2a41"/>
+<text x="410" y="51" fill="#f3f7ff" font-size="20" font-weight="700">Photon Spectrum Cloud</text>
+<text x="410" y="74" fill="#b7c5d8" font-size="15">Managed iMessage line</text>
+<path d="M410 91V652" stroke="#44536b" stroke-dasharray="5 6"/>
+<rect x="560" y="24" width="240" height="66" rx="11" fill="#1d2a41"/>
+<text x="680" y="51" fill="#f3f7ff" font-size="20" font-weight="700">Local relay</text>
+<text x="680" y="74" fill="#b7c5d8" font-size="15">TypeScript on your Mac</text>
+<path d="M680 91V652" stroke="#44536b" stroke-dasharray="5 6"/>
+<rect x="830" y="24" width="240" height="66" rx="11" fill="#1d2a41"/>
+<text x="950" y="51" fill="#f3f7ff" font-size="20" font-weight="700">Grok Bot</text>
+<text x="950" y="74" fill="#b7c5d8" font-size="15">Existing hosted agent</text>
+<path d="M950 91V652" stroke="#44536b" stroke-dasharray="5 6"/>
+<text x="275" y="132" fill="#f1f6ff" font-size="16">Send a text in Messages</text>
+<path d="M140 144H410" stroke="#7ee6dc" stroke-width="2"  marker-end="url(#arrow-teal)"/>
+<text x="545" y="191" fill="#f1f6ff" font-size="16">SDK stream: text + conversation</text>
+<path d="M410 203H680" stroke="#7ee6dc" stroke-width="2"  marker-end="url(#arrow-teal)"/>
+<rect x="560" y="224" width="240" height="38" rx="7" fill="#273654"/>
+<text x="680" y="249" fill="#e8efff" font-size="16">Save request ID → conversation</text>
+<text x="815" y="291" fill="#f1f6ff" font-size="16">Webhook: ID, text, recent turns</text>
+<path d="M680 303H950" stroke="#7ee6dc" stroke-width="2"  marker-end="url(#arrow-teal)"/>
+<text x="815" y="342" fill="#f1f6ff" font-size="16">HTTP 200: run started</text>
+<path d="M950 354H680" stroke="#b4c1d6" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow-gray)"/>
+<rect x="830" y="379" width="240" height="38" rx="7" fill="#273654"/>
+<text x="950" y="404" fill="#e8efff" font-size="16">Generate the answer</text>
+<text x="815" y="444" fill="#f1f6ff" font-size="16">MCP: reply_to_message(ID, text)</text>
+<path d="M950 456H680" stroke="#f4c28b" stroke-width="2"  marker-end="url(#arrow-gold)"/>
+<rect x="560" y="478" width="240" height="38" rx="7" fill="#273654"/>
+<text x="680" y="503" fill="#e8efff" font-size="16">Find the original conversation</text>
+<text x="545" y="542" fill="#f1f6ff" font-size="16">Spectrum SDK: send the answer</text>
+<path d="M680 554H410" stroke="#f4c28b" stroke-width="2"  marker-end="url(#arrow-gold)"/>
+<text x="275" y="608" fill="#f1f6ff" font-size="16">Reply in the same iMessage thread</text>
+<path d="M410 620H140" stroke="#f4c28b" stroke-width="2"  marker-end="url(#arrow-gold)"/>
+</g></svg>
