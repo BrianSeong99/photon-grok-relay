@@ -25,8 +25,8 @@ The webhook acknowledgement tells the relay the run started. The MCP tool carrie
 You’ll need Node.js 26, npm, an existing Grok Bot, the Photon legacy Spectrum CLI via npm, and Cloudflare’s `cloudflared` CLI.
 
 ```sh
-git clone https://github.com/BrianSeong99/photon-grok-relay.git
-cd photon-grok-relay
+git clone https://github.com/BrianSeong99/photon-imessage-relay.git
+cd photon-imessage-relay
 npm ci
 npm run check
 npm test
@@ -107,5 +107,5 @@ Wait for **Spectrum connected. Waiting for a direct text.** Then send the same t
 - **[iMessage on iPhone][iphone-demo].** I ask Grok Bot about my X profile and then ask about recent follower engagement. The Bot describes the profile and explains that it cannot see live engagement stats from that chat. Messages shows the answers in the same thread.
 - **[Grok Bot on desktop][grok-demo].** The Bot-side recording shows the answers generated during the same run and the routine handling follow-up requests.
 
-[iphone-demo]: https://github.com/BrianSeong99/photon-grok-relay/releases/download/v0.1.0/imessage-demo.mp4
-[grok-demo]: https://github.com/BrianSeong99/photon-grok-relay/releases/download/v0.1.0/grok-bot-demo.mp4
+[iphone-demo]: https://github.com/BrianSeong99/photon-imessage-relay/releases/download/v0.1.0/imessage-demo.mp4
+[grok-demo]: https://github.com/BrianSeong99/photon-imessage-relay/releases/download/v0.1.0/grok-bot-demo.mp4
