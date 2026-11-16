@@ -2,7 +2,7 @@
 
 Give your existing Grok Bot an iMessage front end. Text a Photon-managed number, get a reply in the same thread, and ask a follow-up that refers to the first answer.
 
-**Watch the live demo:** [iMessage on iPhone][iphone-demo] · [Grok Bot on desktop][grok-demo] · [Setup walkthrough][setup-demo]
+**Watch the live demo:** [iMessage on iPhone][iphone-demo] · [Grok Bot on desktop][grok-demo]
 
 <img src="media/imessage-demo.gif" width="360" alt="iMessage demo showing a follow-up and Grok Bot’s Tokyo weather reply">
 
@@ -104,8 +104,6 @@ Wait for **Spectrum connected. Waiting for a direct text.** Then send the same t
 
 - **[iMessage on iPhone][iphone-demo].** I ask Grok Bot about my X profile and then ask about recent follower engagement. The Bot describes the profile and explains that it cannot see live engagement stats from that chat. Messages shows the answers in the same thread.
 - **[Grok Bot on desktop][grok-demo].** The Bot-side recording shows the answers generated during the same run and the routine handling follow-up requests.
-- **[Setup walkthrough][setup-demo].** The walkthrough covers the relay, local checks, routine and connector configuration, captured test answers, Photon setup, and starting the relay. Credentials are shown as placeholders.
 
 [iphone-demo]: https://github.com/BrianSeong99/photon-grok-relay/releases/download/v0.1.0/imessage-demo.mp4
 [grok-demo]: https://github.com/BrianSeong99/photon-grok-relay/releases/download/v0.1.0/grok-bot-demo.mp4
-[setup-demo]: https://github.com/BrianSeong99/photon-grok-relay/releases/download/v0.1.0/setup-walkthrough.mp4
