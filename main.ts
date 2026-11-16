@@ -1,6 +1,5 @@
 import { createInterface } from 'node:readline';
 import { randomUUID } from 'node:crypto';
-import { once } from 'node:events';
 import { Relay } from './relay.ts';
 import { replyServer } from './mcp.ts';
 
@@ -38,39 +37,77 @@ async function main() {
     await response.body?.cancel();
   }, Date.now, (id, state) => console.log(JSON.stringify({ id, state, at: new Date().toISOString() })));
 
-  const server = replyServer(bearer, (id, text) => relay.reply(id, text));
-  server.listen(Number(process.env.RELAY_PORT ?? 8787), '127.0.0.1');
-  await once(server, 'listening');
-  console.log(`Reply endpoint listening locally in ${mode} mode`);
+  let ready = false;
+  const shutdown = new AbortController();
+  const server = replyServer(bearer, (id, text) => relay.reply(id, text), () => ready);
+  let stopInput: (() => Promise<void> | void) | undefined;
+  let closing: Promise<void> | undefined;
+  function close() {
+    if (closing) return closing;
+    ready = false;
+    shutdown.abort();
+    closing = Promise.allSettled([server.close(), Promise.resolve().then(() => stopInput?.())])
+      .then(results => {
+        if (results.some(result => result.status === 'rejected')) process.exitCode = 1;
+      });
+    return closing;
+  }
+  const onSignal = () => { void close(); };
+  process.once('SIGINT', onSignal);
+  process.once('SIGTERM', onSignal);
+  try {
+    await server.listen({ port: Number(process.env.RELAY_PORT ?? 8787), host: '127.0.0.1' });
+    console.log(`Reply endpoint listening locally in ${mode} mode`);
+    if (shutdown.signal.aborted) return;
 
-  if (mode === 'capture') {
-    const lines = createInterface({ input: process.stdin, terminal: false });
-    for await (const line of lines) {
-      if (line.trim()) await relay.receive(randomUUID(), 'capture', line.trim());
+    if (mode === 'capture') {
+      const lines = createInterface({ input: process.stdin, terminal: false });
+      stopInput = () => lines.close();
+      ready = true;
+      for await (const line of lines) {
+        if (shutdown.signal.aborted) break;
+        if (line.trim()) await relay.receive(randomUUID(), 'capture', line.trim());
+      }
+      if (!shutdown.signal.aborted) await new Promise<void>(resolve => {
+        shutdown.signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+      return;
     }
-    return;
-  }
 
-  const [{ Spectrum }, { imessage }] = await Promise.all([
-    import('spectrum-ts'),
-    import('spectrum-ts/providers/imessage'),
-  ]);
-  const app = await Spectrum({
-    projectId,
-    projectSecret,
-    providers: [imessage.config()],
-    signal: AbortSignal.timeout(30_000),
-  });
-  console.log('Spectrum connected. Waiting for a direct text.');
-  for await (const [space, message] of app.messages) {
-    if (space.__platform !== 'imessage' || !('type' in space) || space.type !== 'dm') continue;
-    if (message.direction !== 'inbound' || message.content.type !== 'text') continue;
-    if (message.sender?.id !== allowedSender || !message.content.text.trim()) continue;
-    await relay.receive(message.id, space.id, message.content.text, async answer => {
-      await space.send(answer);
+    const [{ Spectrum }, { imessage }] = await Promise.all([
+      import('spectrum-ts'),
+      import('spectrum-ts/providers/imessage'),
+    ]);
+    const app = await Spectrum({
+      projectId,
+      projectSecret,
+      providers: [imessage.config()],
+      signal: AbortSignal.any([shutdown.signal, AbortSignal.timeout(30_000)]),
     });
+    stopInput = () => app.stop();
+    if (shutdown.signal.aborted) {
+      await app.stop();
+      return;
+    }
+    ready = true;
+    console.log('Spectrum connected. Waiting for a direct text.');
+    for await (const [space, message] of app.messages) {
+      if (shutdown.signal.aborted) break;
+      if (space.__platform !== 'imessage' || !('type' in space) || space.type !== 'dm') continue;
+      if (message.direction !== 'inbound' || message.content.type !== 'text') continue;
+      if (message.sender?.id !== allowedSender || !message.content.text.trim()) continue;
+      await relay.receive(message.id, space.id, message.content.text, async answer => {
+        await space.send(answer);
+      });
+    }
+    if (!shutdown.signal.aborted) throw new Error('Spectrum message stream ended');
+  } catch (error) {
+    if (!shutdown.signal.aborted) throw error;
+  } finally {
+    await close();
+    process.removeListener('SIGINT', onSignal);
+    process.removeListener('SIGTERM', onSignal);
   }
-  throw new Error('Spectrum message stream ended');
 }
 
 main().catch(() => {

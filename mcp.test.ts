@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { once } from 'node:events';
 import { test } from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -13,11 +12,8 @@ test('requires authentication and completes a real MCP handshake and reply call'
     calls.push([id, text]);
     return 'captured';
   });
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  const address = server.address();
-  assert(address && typeof address === 'object');
-  const url = new URL(`http://127.0.0.1:${address.port}/mcp`);
+  const address = await server.listen({ port: 0, host: '127.0.0.1' });
+  const url = new URL('/mcp', address);
   const client = new Client({ name: 'local-test', version: '1.0.0' });
   try {
     for (const headers of [new Headers(), new Headers({ Authorization: 'Bearer wrong' })]) {
@@ -33,6 +29,19 @@ test('requires authentication and completes a real MCP handshake and reply call'
     assert.deepEqual(calls, [[requestId, 'answer']]);
   } finally {
     await client.close();
-    server.close();
+    await server.close();
+  }
+});
+
+test('health and readiness report distinct states', async () => {
+  let ready = false;
+  const server = replyServer('test-secret', async () => 'captured', () => ready);
+  try {
+    assert.equal((await server.inject({ method: 'GET', url: '/healthz' })).statusCode, 200);
+    assert.equal((await server.inject({ method: 'GET', url: '/readyz' })).statusCode, 503);
+    ready = true;
+    assert.equal((await server.inject({ method: 'GET', url: '/readyz' })).statusCode, 200);
+  } finally {
+    await server.close();
   }
 });

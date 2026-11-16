@@ -18,6 +18,8 @@ This is an independent developer tutorial using Photon Spectrum Cloud and Grok B
 
 The webhook acknowledgement tells the relay the run started. The MCP tool carries the answer back. The relay matches replies by request ID and keeps the destination on your Mac. Grok Bot routine runs didn’t reliably carry prior turns in testing, so the relay supplies up to four recent exchanges from the same thread.
 
+[Architecture and code map](docs/architecture.md) · [Runtime behavior and debugging](docs/runtime-behavior.md)
+
 ## 1. Run the local checks
 
 You’ll need Node.js 26, npm, an existing Grok Bot, the Photon legacy Spectrum CLI via npm, and Cloudflare’s `cloudflared` CLI.
