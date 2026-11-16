@@ -1,7 +1,7 @@
 import { createInterface } from 'node:readline';
 import { randomUUID } from 'node:crypto';
 import { Relay } from './relay.ts';
-import { replyServer } from './mcp.ts';
+import { replyServer } from './server.ts';
 
 function required(name: string) {
   const value = process.env[name];
