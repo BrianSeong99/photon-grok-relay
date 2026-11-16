@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Relay } from './relay.ts';
+import { Relay } from '../src/relay.ts';
 
 test('correlates replies and suppresses duplicates', async () => {
   const inputs: string[] = [];

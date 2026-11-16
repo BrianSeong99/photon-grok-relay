@@ -8,15 +8,15 @@ The relay gives an existing Grok Bot an iMessage interface. It runs as a single 
 
 | File | Responsibility |
 | --- | --- |
-| [main.ts](../main.ts) | Loads configuration, starts the Fastify server, sends Grok routine requests, and selects capture or iMessage input. |
-| [relay.ts](../relay.ts) | Queues turns, deduplicates events, tracks requests in SQLite, keeps recent conversation history, and routes replies. |
-| [mcp.ts](../mcp.ts) | Defines the Fastify routes, checks callback authentication, and passes protocol handling and tool arguments to the MCP SDK. |
-| [relay.test.ts](../relay.test.ts) | Exercises correlation, expiration, ambiguous sends, duplicate suppression, queue order, and history. |
-| [mcp.test.ts](../mcp.test.ts) | Uses a real MCP client against the local HTTP server to check authentication, discovery, and tool invocation. Also checks health and readiness status codes. |
+| [src/main.ts](../src/main.ts) | Loads configuration, starts the Fastify server, sends Grok routine requests, and selects capture or iMessage input. |
+| [src/relay.ts](../src/relay.ts) | Queues turns, deduplicates events, tracks requests in SQLite, keeps recent conversation history, and routes replies. |
+| [src/server.ts](../src/server.ts) | Defines the Fastify routes, checks callback authentication, and passes protocol handling and tool arguments to the MCP SDK. |
+| [tests/relay.test.ts](../tests/relay.test.ts) | Exercises correlation, expiration, ambiguous sends, duplicate suppression, queue order, and history. |
+| [tests/server.test.ts](../tests/server.test.ts) | Uses a real MCP client against the local HTTP server to check authentication, discovery, and tool invocation. Also checks health and readiness status codes. |
 
 ## Trace one turn
 
-1. **Receive.** In iMessage mode, `main.ts` reads the Spectrum SDK stream. It accepts inbound, nonblank direct texts from the configured test sender. In capture mode, a line of terminal input becomes a synthetic event.
+1. **Receive.** In iMessage mode, `src/main.ts` reads the Spectrum SDK stream. It accepts inbound, nonblank direct texts from the configured test sender. In capture mode, a line of terminal input becomes a synthetic event.
 2. **Queue.** `Relay.receive()` inserts the inbound event ID and a new request UUID. The entry also records the chat ID. For iMessage, the in-memory job keeps a send function bound to the originating Spectrum conversation.
 3. **Trigger.** The active job sends Grok Bot `{ requestId, text, history? }` through its routine webhook. A `200` response confirms the run started. It contains no answer text.
 4. **Receive the answer.** Grok Bot calls `reply_to_message({ requestId, text })` over MCP. The tool accepts a UUID and trimmed text of 1–8,000 characters. The request ID identifies the active job.

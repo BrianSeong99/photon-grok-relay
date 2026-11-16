@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { replyServer } from './mcp.ts';
+import { replyServer } from '../src/server.ts';
 
 test('requires authentication and completes a real MCP handshake and reply call', async () => {
   const secret = randomUUID();
