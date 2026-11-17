@@ -1,6 +1,8 @@
-# Text your Grok Bot with Photon
+# Photon iMessage Relay
 
 Give your existing Grok Bot an iMessage front end. Text a Photon-managed number, get a reply in the same thread, and ask a follow-up that refers to the first answer.
+
+**Prefer a local model?** The [LangChain + Ollama preview](https://github.com/BrianSeong99/photon-imessage-relay/tree/feat/langchain-ollama) runs Qwen 3.5 9B on your Mac, shows iMessage typing while it generates, and logs relay events to disk. [Read the local model quickstart](https://github.com/BrianSeong99/photon-imessage-relay/blob/feat/langchain-ollama/docs/langchain-ollama.md) and check out the preview branch to try it.
 
 **Watch the live demo:** [iMessage on iPhone][iphone-demo] · [Grok Bot on desktop][grok-demo]
 
