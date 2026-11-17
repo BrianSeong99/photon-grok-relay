@@ -4,14 +4,16 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 
-export function replyServer(secret: string, reply: (id: string, text: string) => Promise<string>, isReady = () => true) {
-  const expected = Buffer.from('Bearer ' + secret);
+export function replyServer(secret: string | undefined, reply: (id: string, text: string) => Promise<string>, isReady = () => true) {
   const server = Fastify({ exposeHeadRoutes: false });
   server.get('/healthz', async () => ({ status: 'ok' }));
   server.get('/readyz', async (_req, res) => {
     const ready = isReady();
     return res.code(ready ? 200 : 503).send({ status: ready ? 'ready' : 'not_ready' });
   });
+
+  if (!secret) return server;
+  const expected = Buffer.from('Bearer ' + secret);
 
   server.all('/mcp', {
     onRequest: async (req, res) => {

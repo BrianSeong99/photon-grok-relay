@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline';
 import { randomUUID } from 'node:crypto';
-import { Relay } from './relay.ts';
+import { Relay, type Input } from './relay.ts';
 import { replyServer } from './server.ts';
 
 function required(name: string) {
@@ -18,27 +18,38 @@ async function main() {
   if (mode === 'imessage' && (projectId.startsWith('pho_prj_') || !/^\+[1-9]\d{7,14}$/.test(allowedSender))) {
     throw new Error('Requires a legacy Spectrum project and an E.164 test sender');
   }
-  const webhook = new URL(required('GROK_ROUTINE_URL'));
-  if (webhook.origin !== 'https://api2.cursor.sh') throw new Error('Unexpected routine endpoint');
-  const routineKey = required('GROK_ROUTINE_KEY');
-  const bearer = required('MCP_BEARER');
-  if (bearer.length < 32) throw new Error('MCP_BEARER must have at least 32 characters');
+  const backend = process.env.RELAY_BACKEND ?? 'grok';
+  if (backend !== 'grok' && backend !== 'ollama') throw new Error('Invalid RELAY_BACKEND');
+  const shutdown = new AbortController();
+  let trigger: (input: Input) => Promise<string | void>;
+  let bearer: string | undefined;
+  if (backend === 'ollama') {
+    const { createOllamaResponder } = await import('./ollama.ts');
+    trigger = await createOllamaResponder(process.env.OLLAMA_MODEL || 'qwen3.5:9b', shutdown.signal);
+  } else {
+    const webhook = new URL(required('GROK_ROUTINE_URL'));
+    if (webhook.origin !== 'https://api2.cursor.sh') throw new Error('Unexpected routine endpoint');
+    const routineKey = required('GROK_ROUTINE_KEY');
+    bearer = required('MCP_BEARER');
+    if (bearer.length < 32) throw new Error('MCP_BEARER must have at least 32 characters');
+    trigger = async input => {
+      const response = await fetch(webhook, {
+        method: 'POST',
+        redirect: 'error',
+        headers: { Authorization: `Bearer ${routineKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (response.status !== 200) throw new Error('Routine request failed');
+      await response.body?.cancel();
+    };
+  }
 
   process.umask(0o077);
-  const relay = new Relay(process.env.RELAY_DB ?? 'relay.sqlite', async input => {
-    const response = await fetch(webhook, {
-      method: 'POST',
-      redirect: 'error',
-      headers: { Authorization: `Bearer ${routineKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (response.status !== 200) throw new Error('Routine request failed');
-    await response.body?.cancel();
-  }, Date.now, (id, state) => console.log(JSON.stringify({ id, state, at: new Date().toISOString() })));
+  const relay = new Relay(process.env.RELAY_DB ?? 'relay.sqlite', trigger,
+    Date.now, (id, state) => console.log(JSON.stringify({ id, state, at: new Date().toISOString() })));
 
   let ready = false;
-  const shutdown = new AbortController();
   const server = replyServer(bearer, (id, text) => relay.reply(id, text), () => ready);
   let stopInput: (() => Promise<void> | void) | undefined;
   let closing: Promise<void> | undefined;
@@ -57,7 +68,7 @@ async function main() {
   process.once('SIGTERM', onSignal);
   try {
     await server.listen({ port: Number(process.env.RELAY_PORT ?? 8787), host: '127.0.0.1' });
-    console.log(`Reply endpoint listening locally in ${mode} mode`);
+    console.log(`Relay listening locally in ${mode} mode with the ${backend} backend`);
     if (shutdown.signal.aborted) return;
 
     if (mode === 'capture') {
@@ -98,7 +109,7 @@ async function main() {
       if (message.sender?.id !== allowedSender || !message.content.text.trim()) continue;
       await relay.receive(message.id, space.id, message.content.text, async answer => {
         await space.send(answer);
-      });
+      }, backend === 'ollama' ? generate => space.responding(generate) : undefined);
     }
     if (!shutdown.signal.aborted) throw new Error('Spectrum message stream ended');
   } catch (error) {
@@ -110,7 +121,9 @@ async function main() {
   }
 }
 
-main().catch(() => {
-  console.error('Relay stopped. Check local configuration and connection status.');
+main().catch(error => {
+  const message = error instanceof Error ? error.message : '';
+  console.error(/^(Start the local Ollama server|Ollama model unavailable)/.test(message)
+    ? message : 'Relay stopped. Check local configuration and connection status.');
   process.exit(1);
 });

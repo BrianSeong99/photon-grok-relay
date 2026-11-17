@@ -45,3 +45,15 @@ test('health and readiness report distinct states', async () => {
     await server.close();
   }
 });
+
+test('local model mode exposes health checks without an MCP callback', async () => {
+  const server = replyServer(undefined, async () => {
+    assert.fail('a local model cannot receive a callback');
+  });
+  try {
+    assert.equal((await server.inject({ method: 'POST', url: '/mcp' })).statusCode, 404);
+    assert.equal((await server.inject({ method: 'GET', url: '/healthz' })).statusCode, 200);
+  } finally {
+    await server.close();
+  }
+});

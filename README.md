@@ -20,6 +20,8 @@ The webhook acknowledgement tells the relay the run started. The MCP tool carrie
 
 [Architecture and code map](docs/architecture.md) · [Runtime behavior and debugging](docs/runtime-behavior.md)
 
+**Use a local model:** [Run LangChain with Ollama and Qwen 3.5 9B](docs/langchain-ollama.md).
+
 ## 1. Run the local checks
 
 You’ll need Node.js 26, npm, an existing Grok Bot, the Photon legacy Spectrum CLI via npm, and Cloudflare’s `cloudflared` CLI.
