@@ -11,3 +11,7 @@ Choose the Ollama backend to send iMessages to a LangChain agent running on your
 No model API key, Grok Bot routine, MCP connector, or public tunnel is required in Ollama mode. Recent context is held in memory and supplied to LangChain on each turn. The relay continues to filter inbound texts by the configured test sender. It loads the model on demand, so the first reply may take longer. The Mac must be awake and both processes must be running.
 
 [LangChain ChatOllama integration](https://docs.langchain.com/oss/javascript/integrations/chat/ollama) · [Qwen 3.5 9B](https://ollama.com/library/qwen3.5:9b)
+
+## Monitor the relay
+
+Run `tail -f relay.log` from the relay directory. Set `RELAY_LOG_FILE` to use a different location. Match `generation_started`, `generation_finished`, and `sent` by request ID. Generation timing is in milliseconds. The file contains operational events, without prompt or answer text. The HTTP health endpoints provide status checks.

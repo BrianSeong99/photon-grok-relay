@@ -1,5 +1,7 @@
 import { createInterface } from 'node:readline';
 import { randomUUID } from 'node:crypto';
+import { appendFileSync } from 'node:fs';
+import { performance } from 'node:perf_hooks';
 import { Relay, type Input } from './relay.ts';
 import { replyServer } from './server.ts';
 
@@ -20,12 +22,36 @@ async function main() {
   }
   const backend = process.env.RELAY_BACKEND ?? 'grok';
   if (backend !== 'grok' && backend !== 'ollama') throw new Error('Invalid RELAY_BACKEND');
+  const model = backend === 'ollama' ? process.env.OLLAMA_MODEL || 'qwen3.5:9b' : undefined;
+  const logFile = process.env.RELAY_LOG_FILE || 'relay.log';
+  appendFileSync(logFile, '', { mode: 0o600 });
+  function log(event: string, fields: { id?: string; durationMs?: number } = {}) {
+    const line = JSON.stringify({ at: new Date().toISOString(), backend, model, event, ...fields });
+    console.log(line);
+    try {
+      appendFileSync(logFile, line + '\n', { mode: 0o600 });
+    } catch {
+      console.error('Could not append to the relay log');
+    }
+  }
   const shutdown = new AbortController();
   let trigger: (input: Input) => Promise<string | void>;
   let bearer: string | undefined;
-  if (backend === 'ollama') {
+  if (model) {
     const { createOllamaResponder } = await import('./ollama.ts');
-    trigger = await createOllamaResponder(process.env.OLLAMA_MODEL || 'qwen3.5:9b', shutdown.signal);
+    const generate = await createOllamaResponder(model, shutdown.signal);
+    trigger = async input => {
+      const started = performance.now();
+      log('generation_started', { id: input.requestId });
+      try {
+        const answer = await generate(input);
+        log('generation_finished', { id: input.requestId, durationMs: Math.round(performance.now() - started) });
+        return answer;
+      } catch (error) {
+        log('generation_failed', { id: input.requestId, durationMs: Math.round(performance.now() - started) });
+        throw error;
+      }
+    };
   } else {
     const webhook = new URL(required('GROK_ROUTINE_URL'));
     if (webhook.origin !== 'https://api2.cursor.sh') throw new Error('Unexpected routine endpoint');
@@ -47,7 +73,7 @@ async function main() {
 
   process.umask(0o077);
   const relay = new Relay(process.env.RELAY_DB ?? 'relay.sqlite', trigger,
-    Date.now, (id, state) => console.log(JSON.stringify({ id, state, at: new Date().toISOString() })));
+    Date.now, (id, state) => log(state, { id }));
 
   let ready = false;
   const server = replyServer(bearer, (id, text) => relay.reply(id, text), () => ready);
@@ -68,13 +94,14 @@ async function main() {
   process.once('SIGTERM', onSignal);
   try {
     await server.listen({ port: Number(process.env.RELAY_PORT ?? 8787), host: '127.0.0.1' });
-    console.log(`Relay listening locally in ${mode} mode with the ${backend} backend`);
+    log('http_listening');
     if (shutdown.signal.aborted) return;
 
     if (mode === 'capture') {
       const lines = createInterface({ input: process.stdin, terminal: false });
       stopInput = () => lines.close();
       ready = true;
+      log('capture_ready');
       for await (const line of lines) {
         if (shutdown.signal.aborted) break;
         if (line.trim()) await relay.receive(randomUUID(), 'capture', line.trim());
@@ -101,6 +128,7 @@ async function main() {
       return;
     }
     ready = true;
+    log('photon_ready');
     console.log('Spectrum connected. Waiting for a direct text.');
     for await (const [space, message] of app.messages) {
       if (shutdown.signal.aborted) break;
@@ -116,6 +144,7 @@ async function main() {
     if (!shutdown.signal.aborted) throw error;
   } finally {
     await close();
+    log('relay_stopped');
     process.removeListener('SIGINT', onSignal);
     process.removeListener('SIGTERM', onSignal);
   }
