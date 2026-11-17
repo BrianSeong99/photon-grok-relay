@@ -4,15 +4,11 @@ Give your existing Grok Bot an iMessage front end. Text a Photon-managed number,
 
 **Prefer a local model?** The [LangChain + Ollama preview](https://github.com/BrianSeong99/photon-imessage-relay/tree/feat/langchain-ollama) runs Qwen 3.5 9B on your Mac, shows iMessage typing while it generates, and logs relay events to disk. [Read the local model quickstart](https://github.com/BrianSeong99/photon-imessage-relay/blob/feat/langchain-ollama/docs/langchain-ollama.md) and check out the preview branch to try it.
 
-**Watch the live demo:** [iMessage on iPhone][iphone-demo] · [Grok Bot on desktop][grok-demo]
+**Watch the Grok Bot demo:** [iMessage on iPhone][iphone-demo] · [Grok Bot on desktop][grok-demo]
 
 <img src="media/imessage-demo.gif" width="360" alt="iMessage demo showing a follow-up and Grok Bot’s Tokyo weather reply">
 
-*Short preview. The links above show the full recordings.*
-
-In the original two-turn test, I asked for coffee shop names, then asked the Bot to shorten its second suggestion. It changed **Morning Ember Cafe** to **Morning Ember**. The recordings below show a separate live run from the phone and Bot sides.
-
-This is an independent developer tutorial using Photon Spectrum Cloud and Grok Bot.
+*In this recording, I text Grok Bot about my X profile and ask about Tokyo weather. The replies arrive in the same iMessage thread through Photon.*
 
 ## How the message gets back to your phone
 
