@@ -14,7 +14,7 @@ Both tutorials use [Photon Stable](docs/photon-setup.md) for the iPhone test. St
 ## How the relay works
 
 1. **Receive.** Photon delivers the incoming text over the Spectrum SDK stream.
-2. **Respond.** The relay accepts direct texts from your test sender and passes recent turns from that thread to the selected backend. The Ollama path also shows iMessage typing while the model generates.
+2. **Respond.** The relay accepts direct texts from your test sender and passes recent turns from that thread to the selected backend. Both paths show iMessage typing while the relay waits for an answer.
 3. **Deliver.** The relay sends the answer back through Photon to the originating conversation. Fastify serves health checks, and the relay writes operational events to a local log.
 
 For a code walkthrough, see the [architecture](docs/architecture.md). For request states, retries, and troubleshooting, see [runtime behavior](docs/runtime-behavior.md).

@@ -4,8 +4,8 @@ import { DatabaseSync } from 'node:sqlite';
 type Turn = { user: string; assistant: string };
 export type Input = { requestId: string; text: string; history?: Turn[] };
 type Send = (text: string) => Promise<void>;
-type Responding = (run: () => Promise<string | void>) => Promise<string | void>;
-type Job = Input & { chatId: string; send?: Send; responding?: Responding };
+type Typing = { start: () => Promise<void>; stop: () => Promise<void> };
+type Job = Input & { chatId: string; send?: Send; typing?: Typing };
 
 export class Relay {
   private db: DatabaseSync;
@@ -32,13 +32,13 @@ export class Relay {
     `);
   }
 
-  async receive(eventId: string, chatId: string, text: string, send?: Send, responding?: Responding) {
+  async receive(eventId: string, chatId: string, text: string, send?: Send, typing?: Typing) {
     const requestId = randomUUID();
     const { changes } = this.db.prepare(
       "INSERT OR IGNORE INTO turns (event_id, chat_id, request_id, status) VALUES (?, ?, ?, 'queued')",
     ).run(eventId, chatId, requestId);
     if (!changes) return;
-    this.queue.push({ requestId, chatId, text, send, responding });
+    this.queue.push({ requestId, chatId, text, send, typing });
     await this.advance();
     return requestId;
   }
@@ -53,6 +53,9 @@ export class Relay {
     const job = this.queue.shift();
     if (!job) return;
     this.active = job;
+    if (job.typing) {
+      await job.typing.start().catch(() => this.report(job.requestId, 'typing_start_failed'));
+    }
     this.db.prepare("UPDATE turns SET status = 'pending', expires_at = ? WHERE request_id = ?")
       .run(this.now() + 180_000, job.requestId);
     this.timer = setTimeout(() => {
@@ -61,8 +64,7 @@ export class Relay {
     }, 180_000).unref();
     try {
       const input = { requestId: job.requestId, text: job.text, history: this.history.get(job.chatId) };
-      const run = () => this.trigger(input);
-      const answer = job.responding ? await job.responding(run) : await run();
+      const answer = await this.trigger(input);
       if (typeof answer === 'string') await this.reply(job.requestId, answer);
     } catch {
       const row = this.db.prepare('SELECT status FROM turns WHERE request_id = ?').get(job.requestId);
@@ -75,8 +77,15 @@ export class Relay {
 
   private async finish() {
     clearTimeout(this.timer);
+    if (this.active) await this.stopTyping(this.active);
     this.active = undefined;
     await this.advance();
+  }
+
+  private async stopTyping(job: Job) {
+    const typing = job.typing;
+    job.typing = undefined;
+    if (typing) await typing.stop().catch(() => this.report(job.requestId, 'typing_stop_failed'));
   }
 
   async reply(requestId: string, text: string) {
@@ -95,6 +104,7 @@ export class Relay {
     let status = 'captured';
     if (send) {
       this.setStatus(requestId, 'sending');
+      await this.stopTyping(job);
       try {
         await send(text);
         status = 'sent';

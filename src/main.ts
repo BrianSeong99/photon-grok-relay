@@ -137,7 +137,7 @@ async function main() {
       if (message.sender?.id !== allowedSender || !message.content.text.trim()) continue;
       await relay.receive(message.id, space.id, message.content.text, async answer => {
         await space.send(answer);
-      }, backend === 'ollama' ? generate => space.responding(generate) : undefined);
+      }, { start: () => space.startTyping(), stop: () => space.stopTyping() });
     }
     if (!shutdown.signal.aborted) throw new Error('Spectrum message stream ended');
   } catch (error) {

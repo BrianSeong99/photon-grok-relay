@@ -4,7 +4,7 @@ Use your existing Grok Bot as the agent behind a Photon iMessage number.
 
 ![Sequence diagram: iPhone sends text through Photon to the local relay, which triggers Grok Bot. The Bot calls the relay’s MCP reply tool, and Photon delivers the answer to the original iMessage thread.](../media/relay-sequence.svg)
 
-The webhook acknowledgement tells the relay the run started. The MCP tool carries the answer back. The relay matches replies by request ID and keeps the destination on your Mac. Grok Bot routine runs didn’t reliably carry prior turns in testing, so the relay supplies up to four recent exchanges from the same thread.
+The webhook acknowledgement tells the relay the run started. The MCP tool carries the answer back. The relay starts the typing indicator before triggering the routine and clears it when the callback arrives, the trigger fails, or the request expires. The relay matches replies by request ID and keeps the destination on your Mac. Grok Bot routine runs didn’t reliably carry prior turns in testing, so the relay supplies up to four recent exchanges from the same thread.
 
 ## 1. Run the local checks
 

@@ -46,13 +46,40 @@ test('direct answers show typing during generation and clear it before sending',
     events.push('generate');
     return 'answer';
   });
-  await relay.receive('event', 'chat', 'question', async answer => { events.push(answer); }, async generate => {
-    events.push('typing:start');
-    try {
-      return await generate();
-    } finally {
-      events.push('typing:stop');
-    }
+  await relay.receive('event', 'chat', 'question', async answer => { events.push(answer); }, {
+    start: async () => { events.push('typing:start'); },
+    stop: async () => { events.push('typing:stop'); },
   });
   assert.deepEqual(events, ['typing:start', 'generate', 'typing:stop', 'answer']);
+});
+
+test('Grok keeps typing after the webhook is accepted and clears it before the reply', async () => {
+  const events: string[] = [];
+  const relay = new Relay(':memory:', async () => { events.push('webhook accepted'); });
+  const id = await relay.receive('event', 'chat', 'question', async answer => { events.push(answer); }, {
+    start: async () => { events.push('typing:start'); },
+    stop: async () => { events.push('typing:stop'); },
+  });
+  assert(id);
+  assert.deepEqual(events, ['typing:start', 'webhook accepted']);
+  assert.equal(await relay.reply(id, 'answer'), 'sent');
+  assert.deepEqual(events, ['typing:start', 'webhook accepted', 'typing:stop', 'answer']);
+});
+
+test('clears typing on timeout and trigger failure', async () => {
+  const events: string[] = [];
+  let now = 0;
+  const relay = new Relay(':memory:', async input => {
+    if (input.text === 'fail') throw new Error('request failed');
+  }, () => now);
+  const typing = {
+    start: async () => { events.push('start'); },
+    stop: async () => { events.push('stop'); },
+  };
+  const id = await relay.receive('one', 'chat', 'wait', undefined, typing);
+  assert(id);
+  now = 180_001;
+  assert.equal(await relay.reply(id, 'late'), 'expired');
+  await relay.receive('two', 'chat', 'fail', undefined, typing);
+  assert.deepEqual(events, ['start', 'stop', 'start', 'stop']);
 });

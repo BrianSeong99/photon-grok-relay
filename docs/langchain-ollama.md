@@ -46,7 +46,7 @@ Stop capture mode with Ctrl+C. Follow the [Photon Stable setup](photon-setup.md)
 RELAY_BACKEND=ollama RELAY_MODE=imessage npm start
 ```
 
-Wait for `photon_ready`, then text the assigned Photon number from the registered sender. Ask the same follow-up in the thread. Spectrum starts the typing indicator around generation and clears it when the call settles. The first reply can take longer if Ollama needs to load the model. Your Mac needs to stay awake to answer.
+Wait for `photon_ready`, then text the assigned Photon number from the registered sender. Ask the same follow-up in the thread. The relay uses Spectrum to start typing before generation and clear it before sending the answer or when generation fails. The first reply can take longer if Ollama needs to load the model. Your Mac needs to stay awake to answer.
 
 Ollama mode needs no Grok Bot credentials, model API key, or public callback tunnel. Set `OLLAMA_MODEL` to select another installed Ollama model. The default is `qwen3.5:9b`.
 
