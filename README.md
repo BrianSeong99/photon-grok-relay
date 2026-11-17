@@ -23,7 +23,7 @@ Configure both tutorials, then start one process with `RELAY_BACKEND=both RELAY_
 | `/reset` | Clear this thread’s relay history for the active backend. |
 | `/help` | List the commands. |
 
-The relay handles commands before calling either backend. The selection survives a restart. Each backend gets its own relay history, and a turn already queued keeps its original backend. [Routing and history details](docs/runtime-behavior.md#backend-switching)
+The relay handles any message that starts with a slash. Unknown commands get a prompt to text `/help`. The selection survives a restart. Each backend gets its own relay history, and a turn already queued keeps its original backend. [Routing and history details](docs/runtime-behavior.md#backend-switching)
 
 ## How the relay works
 

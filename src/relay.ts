@@ -52,8 +52,8 @@ export class Relay {
     if (!changes) return;
     const backend = this.backendFor(chatId);
     const historyKey = JSON.stringify([chatId, backend]);
-    const command = text.trim().toLowerCase();
-    if (/^\/[a-z][a-z0-9_-]*$/.test(command)) {
+    const command = text.normalize('NFKC').replace(/\p{Cf}/gu, '').trim().toLowerCase();
+    if (command.startsWith('/')) {
       this.setStatus(requestId, 'command');
       const answer = await this.command(chatId, backend, historyKey, command);
       if (send) await send(answer);

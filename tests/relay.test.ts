@@ -116,6 +116,34 @@ test('intercepts commands before either backend and isolates model history', asy
   assert.equal(replies.filter(text => text === 'Switched to Ollama.').length, 1);
 });
 
+test('keeps formatted and malformed slash commands out of backend requests and history', async () => {
+  const inputs: Array<{ text: string; history: unknown }> = [];
+  const replies: string[] = [];
+  const relay = new Relay(':memory:', async ({ text, history }) => {
+    inputs.push({ text, history });
+    return 'answer';
+  });
+  const send = async (text: string) => { replies.push(text); };
+
+  await relay.receive('1', 'chat', 'first question', send);
+  await relay.receive('2', 'chat', ' \u200b／BACKEND\u2060 ', send);
+  await relay.receive('3', 'chat', '/backend?', send);
+  await relay.receive('4', 'chat', '/reset extra', send);
+  await relay.receive('5', 'chat', 'What does /backend show?', send);
+
+  assert.deepEqual(inputs, [
+    { text: 'first question', history: undefined },
+    { text: 'What does /backend show?', history: [{ user: 'first question', assistant: 'answer' }] },
+  ]);
+  assert.deepEqual(replies, [
+    'answer',
+    'Active backend: Grok Bot.',
+    'Unknown command. Text /help for commands.',
+    'Unknown command. Text /help for commands.',
+    'answer',
+  ]);
+});
+
 test('persists selection and keeps in-flight work on its original backend', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'relay-routing-'));
   try {
