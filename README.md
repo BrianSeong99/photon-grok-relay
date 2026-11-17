@@ -6,9 +6,7 @@ Text a Photon-managed number and get a reply in the same iMessage thread. Run a 
 
 <img src="media/imessage-demo.gif" width="360" alt="iMessage demo showing a follow-up and Grok Bot’s Tokyo weather reply">
 
-*Short preview. The links above show the full recordings.*
-
-In the original two-turn test, I asked for coffee shop names, then asked the Bot to shorten its second suggestion. It changed **Morning Ember Cafe** to **Morning Ember**. The recordings below show a separate live run from the phone and Bot sides.
+*In this recording, I text Grok Bot about my X profile and ask about Tokyo weather. The replies arrive in the same iMessage thread through Photon.*
 
 ## Choose a backend
 
