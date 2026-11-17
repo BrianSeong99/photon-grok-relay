@@ -2,10 +2,9 @@
 
 This walkthrough uses `qwen3.5:9b` on a Mac through Ollama. LangChain runs inside the relay and sends the model only the current message and recent context. Photon still transports the iMessages.
 
-```text
-Messages → Photon SDK stream → Fastify relay → LangChain → local Ollama
-Messages ← Photon send       ← relay answer  ← LangChain ← Qwen
-```
+![Sequence diagram: Photon delivers an iMessage to the relay, which shows typing dots and calls Ollama through LangChain. When generation ends, the relay clears the dots and sends the answer back to the original iMessage thread.](../media/langchain-sequence.svg)
+
+LangChain runs inside the relay process. It waits for Ollama’s answer on the local connection before the relay replies through Photon.
 
 ## 1. Start the model
 
