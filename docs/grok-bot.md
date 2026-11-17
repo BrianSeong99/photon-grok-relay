@@ -66,11 +66,3 @@ Wait for **Spectrum connected. Waiting for a direct text.** Then send the same t
 - **Delivery status is uncertain.** The relay records `send_unknown` when a send fails with an uncertain outcome. Check Messages before repeating the request.
 
 [Grok Bot routines](https://docs.x.ai/grok-bot/skills-routines-and-automations) · [Custom connectors](https://docs.x.ai/grok-bot/computer-and-apps) · [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)
-
-## Recordings
-
-- **[iMessage on iPhone][iphone-demo].** I ask Grok Bot about my X profile and then ask about recent follower engagement. The Bot describes the profile and explains that it cannot see live engagement stats from that chat. Messages shows the answers in the same thread.
-- **[Grok Bot on desktop][grok-demo].** The Bot-side recording shows the answers generated during the same run and the routine handling follow-up requests.
-
-[iphone-demo]: https://github.com/BrianSeong99/photon-imessage-relay/releases/download/v0.1.0/imessage-demo.mp4
-[grok-demo]: https://github.com/BrianSeong99/photon-imessage-relay/releases/download/v0.1.0/grok-bot-demo.mp4

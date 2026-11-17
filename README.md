@@ -2,6 +2,12 @@
 
 Text a Photon-managed number and get an answer in the same iMessage thread. A local TypeScript relay connects Photon Spectrum Cloud to the agent you choose.
 
+## Demo
+
+<img src="media/provider-switching.gif" width="460" alt="One iMessage thread switches between Grok Bot and LangChain with Ollama and receives replies from both">
+
+In one Messages thread, Grok Bot looks up weather and trends on X. Sending `/ollama` switches to a local Qwen model through LangChain, which answers a question about first principles. [Watch the MP4](https://github.com/BrianSeong99/photon-imessage-relay/releases/download/v0.1.0/provider-switching.mp4)
+
 ## Choose a tutorial
 
 | Tutorial | Where the answer comes from | What you need |
@@ -32,9 +38,3 @@ The relay handles any message that starts with a slash. Unknown commands get a p
 3. **Deliver.** The relay sends the answer back through Photon to the originating conversation. Fastify serves health checks, and the relay writes operational events to a local log.
 
 For a code walkthrough, see the [architecture](docs/architecture.md). For request states, retries, and troubleshooting, see [runtime behavior](docs/runtime-behavior.md).
-
-## Grok Bot demo
-
-<img src="media/imessage-demo.gif" width="360" alt="Grok Bot replies to iMessages about an X profile and Tokyo weather">
-
-The clip shows the Grok Bot path. [See both recordings](docs/grok-bot.md#recordings).
