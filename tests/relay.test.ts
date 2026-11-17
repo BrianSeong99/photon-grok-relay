@@ -39,3 +39,20 @@ test('queues a follow-up until the current reply finishes', async () => {
   assert.equal(ids.length, 2);
   assert.deepEqual(histories[1], [{ user: 'first', assistant: 'first answer' }]);
 });
+
+test('direct answers show typing during generation and clear it before sending', async () => {
+  const events: string[] = [];
+  const relay = new Relay(':memory:', async () => {
+    events.push('generate');
+    return 'answer';
+  });
+  await relay.receive('event', 'chat', 'question', async answer => { events.push(answer); }, async generate => {
+    events.push('typing:start');
+    try {
+      return await generate();
+    } finally {
+      events.push('typing:stop');
+    }
+  });
+  assert.deepEqual(events, ['typing:start', 'generate', 'typing:stop', 'answer']);
+});

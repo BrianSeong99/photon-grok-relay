@@ -9,6 +9,7 @@ The relay gives an existing Grok Bot an iMessage interface. It runs as a single 
 | File | Responsibility |
 | --- | --- |
 | [src/main.ts](../src/main.ts) | Loads configuration, starts the Fastify server, sends Grok routine requests, and selects capture or iMessage input. |
+| [src/ollama.ts](../src/ollama.ts) | Builds a LangChain agent with a loopback Ollama model for local replies. |
 | [src/relay.ts](../src/relay.ts) | Queues turns, deduplicates events, tracks requests in SQLite, keeps recent conversation history, and routes replies. |
 | [src/server.ts](../src/server.ts) | Defines the Fastify routes, checks callback authentication, and passes protocol handling and tool arguments to the MCP SDK. |
 | [tests/relay.test.ts](../tests/relay.test.ts) | Exercises correlation, expiration, ambiguous sends, duplicate suppression, queue order, and history. |
@@ -38,3 +39,7 @@ Fastify owns HTTP routing and server shutdown. Its `/mcp` route checks the beare
 On SIGINT or SIGTERM the process marks itself unready and closes the HTTP server and input source. A restart preserves the request status database and clears conversation history.
 
 See [runtime behavior](runtime-behavior.md) for failure states and verification.
+
+## Local model backend
+
+In Ollama mode, the relay replaces the Grok webhook and MCP callback with a direct LangChain invocation. Spectrum supplies the typing indicator during generation. See [setup and verification](langchain-ollama.md).

@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 
 type Turn = { user: string; assistant: string };
-type Input = { requestId: string; text: string; history?: Turn[] };
+export type Input = { requestId: string; text: string; history?: Turn[] };
 type Send = (text: string) => Promise<void>;
-type Job = Input & { chatId: string; send?: Send };
+type Responding = (run: () => Promise<string | void>) => Promise<string | void>;
+type Job = Input & { chatId: string; send?: Send; responding?: Responding };
 
 export class Relay {
   private db: DatabaseSync;
-  private trigger: (input: Input) => Promise<void>;
+  private trigger: (input: Input) => Promise<string | void>;
   private now: () => number;
   private report: (id: string, status: string) => void;
   private queue: Job[] = [];
@@ -16,7 +17,7 @@ export class Relay {
   private active?: Job;
   private timer?: NodeJS.Timeout;
 
-  constructor(path: string, trigger: (input: Input) => Promise<void>, now = Date.now, report = (_id: string, _status: string) => {}) {
+  constructor(path: string, trigger: (input: Input) => Promise<string | void>, now = Date.now, report = (_id: string, _status: string) => {}) {
     this.db = new DatabaseSync(path);
     this.trigger = trigger;
     this.now = now;
@@ -31,13 +32,13 @@ export class Relay {
     `);
   }
 
-  async receive(eventId: string, chatId: string, text: string, send?: Send) {
+  async receive(eventId: string, chatId: string, text: string, send?: Send, responding?: Responding) {
     const requestId = randomUUID();
     const { changes } = this.db.prepare(
       "INSERT OR IGNORE INTO turns (event_id, chat_id, request_id, status) VALUES (?, ?, ?, 'queued')",
     ).run(eventId, chatId, requestId);
     if (!changes) return;
-    this.queue.push({ requestId, chatId, text, send });
+    this.queue.push({ requestId, chatId, text, send, responding });
     await this.advance();
     return requestId;
   }
@@ -59,7 +60,10 @@ export class Relay {
       void this.finish();
     }, 180_000).unref();
     try {
-      await this.trigger({ requestId: job.requestId, text: job.text, history: this.history.get(job.chatId) });
+      const input = { requestId: job.requestId, text: job.text, history: this.history.get(job.chatId) };
+      const run = () => this.trigger(input);
+      const answer = job.responding ? await job.responding(run) : await run();
+      if (typeof answer === 'string') await this.reply(job.requestId, answer);
     } catch {
       const row = this.db.prepare('SELECT status FROM turns WHERE request_id = ?').get(job.requestId);
       if (row?.status === 'pending') {
