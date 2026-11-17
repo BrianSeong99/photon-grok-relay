@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Relay } from '../src/relay.ts';
@@ -82,4 +86,59 @@ test('clears typing on timeout and trigger failure', async () => {
   assert.equal(await relay.reply(id, 'late'), 'expired');
   await relay.receive('two', 'chat', 'fail', undefined, typing);
   assert.deepEqual(events, ['start', 'stop', 'start', 'stop']);
+});
+
+test('intercepts commands before either backend and isolates model history', async () => {
+  const seen: Array<{ backend: unknown; history: unknown }> = [];
+  const replies: string[] = [];
+  const relay = new Relay(':memory:', async (input, backend) => {
+    seen.push({ backend, history: input.history });
+    return input.text;
+  }, Date.now, undefined, { defaultBackend: 'grok', available: ['grok', 'ollama'] });
+  const send = async (text: string) => { replies.push(text); };
+  await relay.receive('1', 'chat', 'hosted question', send);
+  await relay.receive('2', 'chat', '/ollama', send);
+  await relay.receive('2', 'chat', '/ollama', send);
+  await relay.receive('3', 'chat', '/backend', send);
+  await relay.receive('4', 'chat', '/help', send);
+  await relay.receive('5', 'chat', '/unknown', send);
+  await relay.receive('6', 'chat', 'local question', send);
+  await relay.receive('7', 'chat', '/grok', send);
+  await relay.receive('8', 'chat', 'hosted follow-up', send);
+  await relay.receive('9', 'chat', '/reset', send);
+  await relay.receive('10', 'chat', 'fresh hosted question', send);
+  assert.deepEqual(seen, [
+    { backend: 'grok', history: undefined },
+    { backend: 'ollama', history: undefined },
+    { backend: 'grok', history: [{ user: 'hosted question', assistant: 'hosted question' }] },
+    { backend: 'grok', history: undefined },
+  ]);
+  assert.equal(replies.filter(text => text === 'Switched to Ollama.').length, 1);
+});
+
+test('persists selection and keeps in-flight work on its original backend', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'relay-routing-'));
+  try {
+    const db = join(dir, 'relay.sqlite');
+    const config = { defaultBackend: 'grok', available: ['grok', 'ollama'] } as const;
+    const routing = { ...config, available: [...config.available] };
+    const backends: string[] = [];
+    const trigger: ConstructorParameters<typeof Relay>[1] = async (_input, backend) => {
+      backends.push(backend);
+      return backend === 'ollama' ? 'local answer' : undefined;
+    };
+    const relay = new Relay(db, trigger, Date.now, undefined, routing);
+    const send = async () => {};
+    const first = await relay.receive('a', 'chat', 'first', send);
+    assert(first);
+    await relay.receive('b', 'chat', '/ollama', send);
+    await relay.receive('c', 'chat', 'next', send);
+    assert.deepEqual(backends, ['grok']);
+    assert.equal(await relay.replyFromGrok(first, 'grok answer'), 'sent');
+    const restarted = new Relay(db, trigger, Date.now, undefined, routing);
+    await restarted.receive('d', 'chat', 'after restart', send);
+    assert.deepEqual(backends, ['grok', 'ollama', 'ollama']);
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
 });

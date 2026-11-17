@@ -18,6 +18,12 @@ The queue processes one active turn across the process. SQLite records inbound e
 
 A second callback for a claimed request is treated as a duplicate. The tool returns an error for unknown or expired requests.
 
+## Backend switching
+
+Run in `RELAY_BACKEND=both` with the Grok routine and callback credentials set and Ollama running locally. Grok is the default for new threads. A successful `/grok` or `/ollama` saves the selection by chat ID in SQLite. A command is handled after sender verification and before generation, and the relay replies directly.
+
+A normal message keeps the backend selected when it arrived, even if it is still queued when you switch. `/reset` clears relay history for this chat and active backend. It does not clear the Grok Bot app transcript. The selected backend persists when the relay restarts. Its recent history does not.
+
 ## Follow-up context
 
 The relay retains up to four successful exchanges per conversation and passes them to the backend on the next turn. Each user message and answer in that history is limited to 4,000 characters. The first turn has no relay history. A restart clears this history, even though SQLite retains the request statuses.

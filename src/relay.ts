@@ -5,28 +5,40 @@ type Turn = { user: string; assistant: string };
 export type Input = { requestId: string; text: string; history?: Turn[] };
 type Send = (text: string) => Promise<void>;
 type Typing = { start: () => Promise<void>; stop: () => Promise<void> };
-type Job = Input & { chatId: string; send?: Send; typing?: Typing };
+export type Backend = 'grok' | 'ollama';
+type Routing = {
+  defaultBackend: Backend;
+  available: Backend[];
+  describe?: (backend: Backend) => Promise<string>;
+};
+type Job = Input & { backend: Backend; historyKey: string; historyVersion: number; send?: Send; typing?: Typing };
+
+const backendNames = { grok: 'Grok Bot', ollama: 'Ollama' };
 
 export class Relay {
   private db: DatabaseSync;
-  private trigger: (input: Input) => Promise<string | void>;
+  private trigger: (input: Input, backend: Backend) => Promise<string | void>;
   private now: () => number;
-  private report: (id: string, status: string) => void;
+  private report: (id: string, status: string, backend?: Backend) => void;
+  private routing: Routing;
   private queue: Job[] = [];
   private history = new Map<string, Turn[]>();
+  private historyVersions = new Map<string, number>();
   private active?: Job;
   private timer?: NodeJS.Timeout;
 
-  constructor(path: string, trigger: (input: Input) => Promise<string | void>, now = Date.now, report = (_id: string, _status: string) => {}) {
+  constructor(path: string, trigger: (input: Input, backend: Backend) => Promise<string | void>, now = Date.now, report = (_id: string, _status: string, _backend?: Backend) => {}, routing: Routing = { defaultBackend: 'grok', available: ['grok'] }) {
     this.db = new DatabaseSync(path);
     this.trigger = trigger;
     this.now = now;
     this.report = report;
+    this.routing = routing;
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS turns (
         event_id TEXT PRIMARY KEY, chat_id TEXT NOT NULL, request_id TEXT NOT NULL UNIQUE,
         status TEXT NOT NULL, expires_at INTEGER, captured_text TEXT
       );
+      CREATE TABLE IF NOT EXISTS chat_backends (chat_id TEXT PRIMARY KEY, backend TEXT NOT NULL);
       UPDATE turns SET status = 'interrupted' WHERE status IN ('queued', 'pending');
       UPDATE turns SET status = 'send_unknown' WHERE status = 'sending';
     `);
@@ -38,14 +50,62 @@ export class Relay {
       "INSERT OR IGNORE INTO turns (event_id, chat_id, request_id, status) VALUES (?, ?, ?, 'queued')",
     ).run(eventId, chatId, requestId);
     if (!changes) return;
-    this.queue.push({ requestId, chatId, text, send, typing });
+    const backend = this.backendFor(chatId);
+    const historyKey = JSON.stringify([chatId, backend]);
+    const command = text.trim().toLowerCase();
+    if (/^\/[a-z][a-z0-9_-]*$/.test(command)) {
+      this.setStatus(requestId, 'command');
+      const answer = await this.command(chatId, backend, historyKey, command);
+      if (send) await send(answer);
+      return;
+    }
+    this.queue.push({
+      requestId, text, backend, historyKey, historyVersion: this.historyVersions.get(historyKey) ?? 0, send, typing,
+    });
     await this.advance();
     return requestId;
   }
 
+  private backendFor(chatId: string): Backend {
+    const row = this.db.prepare('SELECT backend FROM chat_backends WHERE chat_id = ?').get(chatId);
+    const backend = row?.backend;
+    if ((backend === 'grok' || backend === 'ollama') && this.routing.available.includes(backend)) return backend;
+    return this.routing.defaultBackend;
+  }
+
+  private async command(chatId: string, backend: Backend, historyKey: string, command: string) {
+    switch (command) {
+      case '/grok':
+      case '/ollama': {
+        const selected = command === '/grok' ? 'grok' : 'ollama';
+        if (!this.routing.available.includes(selected)) return `${backendNames[selected]} is not configured on this relay.`;
+        this.db.prepare('INSERT INTO chat_backends (chat_id, backend) VALUES (?, ?) ON CONFLICT(chat_id) DO UPDATE SET backend = excluded.backend')
+          .run(chatId, selected);
+        return `Switched to ${backendNames[selected]}.`;
+      }
+      case '/backend': {
+        const detail = await this.routing.describe?.(backend);
+        return `Active backend: ${backendNames[backend]}.${detail ? ' ' + detail : ''}`;
+      }
+      case '/reset':
+        this.history.delete(historyKey);
+        this.historyVersions.set(historyKey, (this.historyVersions.get(historyKey) ?? 0) + 1);
+        return `Cleared this thread’s relay history for ${backendNames[backend]}.`;
+      case '/help':
+        return '/grok — Grok Bot\n/ollama — local model\n/backend — active backend\n/reset — clear active relay history\n/help — show commands';
+      default:
+        return 'Unknown command. Text /help for commands.';
+    }
+  }
+
+  async replyFromGrok(requestId: string, text: string) {
+    if (this.active?.requestId === requestId && this.active.backend !== 'grok') return 'unknown';
+    return this.reply(requestId, text);
+  }
+
   private setStatus(id: string, status: string) {
     this.db.prepare('UPDATE turns SET status = ? WHERE request_id = ?').run(status, id);
-    this.report(id, status);
+    this.report(id, status, this.active?.requestId === id ? this.active.backend : undefined);
   }
 
   private async advance() {
@@ -63,8 +123,8 @@ export class Relay {
       void this.finish();
     }, 180_000).unref();
     try {
-      const input = { requestId: job.requestId, text: job.text, history: this.history.get(job.chatId) };
-      const answer = await this.trigger(input);
+      const input = { requestId: job.requestId, text: job.text, history: this.history.get(job.historyKey) };
+      const answer = await this.trigger(input, job.backend);
       if (typeof answer === 'string') await this.reply(job.requestId, answer);
     } catch {
       const row = this.db.prepare('SELECT status FROM turns WHERE request_id = ?').get(job.requestId);
@@ -114,9 +174,10 @@ export class Relay {
     } else {
       this.db.prepare('UPDATE turns SET captured_text = ? WHERE request_id = ?').run(text, requestId);
     }
-    if (status === 'sent' || status === 'captured') {
-      const recent = this.history.get(job.chatId) ?? [];
-      this.history.set(job.chatId, [...recent.slice(-3), {
+    if ((status === 'sent' || status === 'captured') &&
+        (this.historyVersions.get(job.historyKey) ?? 0) === job.historyVersion) {
+      const recent = this.history.get(job.historyKey) ?? [];
+      this.history.set(job.historyKey, [...recent.slice(-3), {
         user: job.text.slice(0, 4000), assistant: text.slice(0, 4000),
       }]);
     }

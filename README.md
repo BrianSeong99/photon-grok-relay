@@ -11,6 +11,20 @@ Text a Photon-managed number and get an answer in the same iMessage thread. A lo
 
 Both tutorials use [Photon Stable](docs/photon-setup.md) for the iPhone test. Start with capture mode to verify your chosen backend from the terminal before connecting Photon.
 
+## Switch from Messages
+
+Configure both tutorials, then start one process with `RELAY_BACKEND=both RELAY_MODE=imessage npm start`. Text a command on its own line:
+
+| Command | What it does |
+| --- | --- |
+| `/grok` | Switch to the hosted Grok Bot. |
+| `/ollama` | Switch to the local Ollama model. |
+| `/backend` | Show the active backend and its setup status. |
+| `/reset` | Clear this thread’s relay history for the active backend. |
+| `/help` | List the commands. |
+
+The relay handles commands before calling either backend. The selection survives a restart. Each backend gets its own relay history, and a turn already queued keeps its original backend. [Routing and history details](docs/runtime-behavior.md#backend-switching)
+
 ## How the relay works
 
 1. **Receive.** Photon delivers the incoming text over the Spectrum SDK stream.

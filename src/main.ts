@@ -2,7 +2,7 @@ import { createInterface } from 'node:readline';
 import { randomUUID } from 'node:crypto';
 import { appendFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
-import { Relay, type Input } from './relay.ts';
+import { Relay, type Backend, type Input } from './relay.ts';
 import { replyServer } from './server.ts';
 
 function required(name: string) {
@@ -20,13 +20,18 @@ async function main() {
   if (mode === 'imessage' && (projectId.startsWith('pho_prj_') || !/^\+[1-9]\d{7,14}$/.test(allowedSender))) {
     throw new Error('Requires a legacy Spectrum project and an E.164 test sender');
   }
-  const backend = process.env.RELAY_BACKEND ?? 'grok';
-  if (backend !== 'grok' && backend !== 'ollama') throw new Error('Invalid RELAY_BACKEND');
-  const model = backend === 'ollama' ? process.env.OLLAMA_MODEL || 'qwen3.5:9b' : undefined;
+  const modeBackend = process.env.RELAY_BACKEND ?? 'grok';
+  if (modeBackend !== 'grok' && modeBackend !== 'ollama' && modeBackend !== 'both') {
+    throw new Error('Invalid RELAY_BACKEND');
+  }
+  const model = modeBackend === 'grok' ? undefined : process.env.OLLAMA_MODEL || 'qwen3.5:9b';
   const logFile = process.env.RELAY_LOG_FILE || 'relay.log';
   appendFileSync(logFile, '', { mode: 0o600 });
-  function log(event: string, fields: { id?: string; durationMs?: number } = {}) {
-    const line = JSON.stringify({ at: new Date().toISOString(), backend, model, event, ...fields });
+  function log(event: string, fields: { id?: string; durationMs?: number; backend?: Backend } = {}) {
+    const backend = fields.backend ?? modeBackend;
+    const line = JSON.stringify({
+      at: new Date().toISOString(), backend, model: backend === 'ollama' ? model : undefined, event, id: fields.id, durationMs: fields.durationMs,
+    });
     console.log(line);
     try {
       appendFileSync(logFile, line + '\n', { mode: 0o600 });
@@ -34,31 +39,34 @@ async function main() {
       console.error('Could not append to the relay log');
     }
   }
+
   const shutdown = new AbortController();
-  let trigger: (input: Input) => Promise<string | void>;
+  const backends: Partial<Record<Backend, (input: Input) => Promise<string | void>>> = {};
   let bearer: string | undefined;
   if (model) {
     const { createOllamaResponder } = await import('./ollama.ts');
     const generate = await createOllamaResponder(model, shutdown.signal);
-    trigger = async input => {
+    backends.ollama = async input => {
       const started = performance.now();
-      log('generation_started', { id: input.requestId });
+      const fields = { id: input.requestId, backend: 'ollama' as const };
+      log('generation_started', fields);
       try {
         const answer = await generate(input);
-        log('generation_finished', { id: input.requestId, durationMs: Math.round(performance.now() - started) });
+        log('generation_finished', { ...fields, durationMs: Math.round(performance.now() - started) });
         return answer;
       } catch (error) {
-        log('generation_failed', { id: input.requestId, durationMs: Math.round(performance.now() - started) });
+        log('generation_failed', { ...fields, durationMs: Math.round(performance.now() - started) });
         throw error;
       }
     };
-  } else {
+  }
+  if (modeBackend !== 'ollama') {
     const webhook = new URL(required('GROK_ROUTINE_URL'));
     if (webhook.origin !== 'https://api2.cursor.sh') throw new Error('Unexpected routine endpoint');
     const routineKey = required('GROK_ROUTINE_KEY');
     bearer = required('MCP_BEARER');
     if (bearer.length < 32) throw new Error('MCP_BEARER must have at least 32 characters');
-    trigger = async input => {
+    backends.grok = async input => {
       const response = await fetch(webhook, {
         method: 'POST',
         redirect: 'error',
@@ -66,17 +74,35 @@ async function main() {
         body: JSON.stringify(input),
         signal: AbortSignal.timeout(15_000),
       });
-      if (response.status !== 200) throw new Error('Routine request failed');
       await response.body?.cancel();
+      if (response.status !== 200) throw new Error('Routine request failed');
+      log('routine_accepted', { id: input.requestId, backend: 'grok' });
     };
   }
 
   process.umask(0o077);
-  const relay = new Relay(process.env.RELAY_DB ?? 'relay.sqlite', trigger,
-    Date.now, (id, state) => log(state, { id }));
+  const relay = new Relay(process.env.RELAY_DB ?? 'relay.sqlite', async (input, backend) => {
+    const trigger = backends[backend];
+    if (!trigger) throw new Error('Backend unavailable');
+    return trigger(input);
+  }, Date.now, (id, state, backend) => log(state, { id, backend }), {
+    defaultBackend: modeBackend === 'ollama' ? 'ollama' : 'grok',
+    available: modeBackend === 'both' ? ['grok', 'ollama'] : [modeBackend],
+    describe: async backend => {
+      if (backend === 'grok') return 'Routine configured. Callback delivery is confirmed on the next reply.';
+      const response = await fetch('http://127.0.0.1:11434/api/show', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model }),
+        signal: AbortSignal.timeout(2000),
+      }).catch(() => undefined);
+      await response?.body?.cancel();
+      return response?.ok ? `${model} is available locally.` : 'Local model is unavailable.';
+    },
+  });
 
   let ready = false;
-  const server = replyServer(bearer, (id, text) => relay.reply(id, text), () => ready);
+  const server = replyServer(bearer, (id, text) => relay.replyFromGrok(id, text), () => ready);
   let stopInput: (() => Promise<void> | void) | undefined;
   let closing: Promise<void> | undefined;
   function close() {
@@ -135,9 +161,9 @@ async function main() {
       if (space.__platform !== 'imessage' || !('type' in space) || space.type !== 'dm') continue;
       if (message.direction !== 'inbound' || message.content.type !== 'text') continue;
       if (message.sender?.id !== allowedSender || !message.content.text.trim()) continue;
-      await relay.receive(message.id, space.id, message.content.text, async answer => {
+      void relay.receive(message.id, space.id, message.content.text, async answer => {
         await space.send(answer);
-      }, { start: () => space.startTyping(), stop: () => space.stopTyping() });
+      }, { start: () => space.startTyping(), stop: () => space.stopTyping() }).catch(() => log('input_failed'));
     }
     if (!shutdown.signal.aborted) throw new Error('Spectrum message stream ended');
   } catch (error) {
