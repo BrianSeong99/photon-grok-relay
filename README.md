@@ -1,8 +1,8 @@
-# Text your Grok Bot with Photon
+# Photon iMessage Relay
 
-Give your existing Grok Bot an iMessage front end. Text a Photon-managed number, get a reply in the same thread, and ask a follow-up that refers to the first answer.
+Text a Photon-managed number and get a reply in the same iMessage thread. Run a local LangChain agent through Ollama, or connect your existing Grok Bot.
 
-**Watch the live demo:** [iMessage on iPhone][iphone-demo] · [Grok Bot on desktop][grok-demo]
+**Watch the Grok Bot demo:** [iMessage on iPhone][iphone-demo] · [Grok Bot on desktop][grok-demo]
 
 <img src="media/imessage-demo.gif" width="360" alt="iMessage demo showing a follow-up and Grok Bot’s Tokyo weather reply">
 
@@ -10,9 +10,16 @@ Give your existing Grok Bot an iMessage front end. Text a Photon-managed number,
 
 In the original two-turn test, I asked for coffee shop names, then asked the Bot to shorten its second suggestion. It changed **Morning Ember Cafe** to **Morning Ember**. The recordings below show a separate live run from the phone and Bot sides.
 
-This is an independent developer tutorial using Photon Spectrum Cloud and Grok Bot.
+## Choose a backend
 
-## How the message gets back to your phone
+| Backend | What you need | Start here |
+| --- | --- | --- |
+| **LangChain + Ollama** | Ollama running locally, with `qwen3.5:9b` (about 6.6 GB in the tested setup) | [Local model quickstart](docs/langchain-ollama.md) |
+| **Grok Bot** | An existing Bot, a webhook routine, and an HTTPS callback tunnel | [Grok Bot quickstart](#1-run-the-local-checks) |
+
+Both paths use Photon Stable (Spectrum Cloud) for the phone test. Ollama capture mode can run without Photon credentials.
+
+## Grok Bot message flow
 
 ![Sequence diagram: iPhone sends text through Photon to the local relay, which triggers Grok Bot. The Bot calls the relay’s MCP reply tool, and Photon delivers the answer to the original iMessage thread.](media/relay-sequence.svg)
 
@@ -20,11 +27,9 @@ The webhook acknowledgement tells the relay the run started. The MCP tool carrie
 
 [Architecture and code map](docs/architecture.md) · [Runtime behavior and debugging](docs/runtime-behavior.md)
 
-**Use a local model:** [Run LangChain with Ollama and Qwen 3.5 9B](docs/langchain-ollama.md).
-
 ## 1. Run the local checks
 
-You’ll need Node.js 26, npm, an existing Grok Bot, the Photon legacy Spectrum CLI via npm, and Cloudflare’s `cloudflared` CLI.
+For the Grok Bot walkthrough, you’ll need Node.js 26, npm, an existing Grok Bot, and Cloudflare’s `cloudflared` CLI.
 
 ```sh
 git clone https://github.com/BrianSeong99/photon-imessage-relay.git
@@ -65,24 +70,24 @@ sqlite3 relay.sqlite "SELECT status, captured_text FROM turns ORDER BY rowid DES
 
 ## 3. Connect Photon Spectrum Cloud
 
-Use an existing legacy Spectrum project with iMessage enabled or create one on the free plan. This code uses Spectrum’s project ID and project secret. A Photon 2.0 project ID beginning with `pho_prj_` requires a separate integration.
+Use a Photon Stable (Spectrum Cloud) project with iMessage enabled. These commands use Photon CLI `2.3.0`, the Stable-compatible line published under npm’s `legacy` tag. This code uses Spectrum’s project ID and project secret. A Photon 2.0 project ID beginning with `pho_prj_` requires a separate integration.
 
 ```sh
-npx @photon-ai/cli@legacy login
-npx @photon-ai/cli@legacy projects list --json
+npx @photon-ai/cli@2.3.0 login
+npx @photon-ai/cli@2.3.0 projects list --json
 # If you need a new project:
-npx @photon-ai/cli@legacy projects create --name "Grok iMessage Relay" --platforms imessage --json
+npx @photon-ai/cli@2.3.0 projects create --name "Grok iMessage Relay" --platforms imessage --json
 ```
 
 Register your iPhone number as the test sender using E.164 format. Replace the placeholders with your own values.
 
 ```sh
-npx @photon-ai/cli@legacy spectrum users add \
+npx @photon-ai/cli@2.3.0 spectrum users add \
   --project '<PROJECT_ID>' --phone '<YOUR_E164_NUMBER>' \
   --first-name '<FIRST_NAME>' --last-name '<LAST_NAME>' --email '<YOUR_EMAIL>' --json
 ```
 
-Save the returned `assignedPhoneNumber` for the phone test. Set `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET`, and `TEST_SENDER` in `.env`. The legacy CLI command `npx @photon-ai/cli@legacy projects secret '<PROJECT_ID>'` retrieves the secret. Keep its output private. [Spectrum SDK](https://github.com/photon-hq/spectrum-ts) · [Legacy CLI](https://photon.codes/docs/legacy/cli/installation)
+Save the returned `assignedPhoneNumber` for the phone test. Set `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET`, and `TEST_SENDER` in `.env`. The legacy CLI command `npx @photon-ai/cli@2.3.0 projects secret '<PROJECT_ID>'` retrieves the secret. Keep its output private. [Spectrum SDK](https://github.com/photon-hq/spectrum-ts) · [Legacy CLI](https://photon.codes/docs/legacy/cli/installation)
 
 ## 4. Text the relay
 
